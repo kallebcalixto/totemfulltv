@@ -16,11 +16,11 @@
         
         .admin-layer { position: absolute; overflow: hidden; display: block; }
 
-        /* --- 1. AJUSTE DO PLAYER (PARA NÃO CORTAR) --- */
+        /* --- AJUSTE DO PLAYER --- */
         .video-js { width: 100% !important; height: 100% !important; }
         .vjs-tech { object-fit: fill !important; } 
 
-        /* --- 2. AJUSTE DA GRADE (PARA APARECER TODOS) --- */
+        /* --- AJUSTE DA GRADE --- */
         .grid { 
             display: grid; 
             grid-template-columns: repeat(4, 1fr); 
@@ -44,15 +44,20 @@
 </head>
 <body onclick="p1.play(); p2.play(); p1.muted(false);">
 
-    <div id="v-layer" class="admin-layer"><video id="vid1" class="video-js vjs-default-skin" playsinline muted autoplay></video></div>
-    <div id="vb-layer" class="admin-layer"><video id="vid2" class="video-js vjs-default-skin" playsinline muted loop autoplay></video></div>
+    <div id="v-layer" class="admin-layer">
+        <video id="vid1" class="video-js vjs-default-skin" playsinline muted autoplay preload="auto"></video>
+    </div>
+    
+    <div id="vb-layer" class="admin-layer">
+        <video id="vid2" class="video-js vjs-default-skin" playsinline muted loop autoplay></video>
+    </div>
     
     <div id="g-layer" class="admin-layer">
         <div class="grid" id="gradePrincipal"></div>
     </div>
 
 <script>
-    // Inicialização dos Firebases (Isolados)
+    // Inicialização Firebase
     const mkt = firebase.initializeApp({
         apiKey: "AIzaSyBh-dhSMEgVO0dPyPdE-JAtPb2LeKaq9og",
         databaseURL: "https://marketing-19f3d-default-rtdb.firebaseio.com"
@@ -62,12 +67,46 @@
         databaseURL: "https://totem-full-tv-default-rtdb.firebaseio.com" 
     }, "layApp").database();
 
-    // Players
+    // Configuração do Player Principal (Lógica Anti-travamento solicitada)
+    const ORIGINAL_URL = "https://srv3.zcast.com.br/kbstv/kbstv/playlist.m3u8";
     const p1 = videojs('vid1', { controls: false, autoplay: true });
     const p2 = videojs('vid2', { controls: false, autoplay: true, loop: true });
-    p1.src({ src: "https://srv3.zcast.com.br/kbstv/kbstv/playlist.m3u8", type: "application/x-mpegURL" });
 
-    // Lógica da Grade (Garante 16 espaços)
+    function tryEnableSound() {
+        p1.muted(false);
+        const p = p1.play();
+        if (p) p.catch(() => p1.muted(true));
+    }
+
+    function reloadStream() {
+        console.warn("Recarregando stream principal...");
+        p1.src({ src: ORIGINAL_URL, type: "application/x-mpegURL" });
+        p1.load();
+        p1.play().then(tryEnableSound);
+    }
+
+    p1.on("loadedmetadata", tryEnableSound);
+    p1.on("error", () => { reloadStream(); });
+
+    // Anti-travamento (4 segundos)
+    let lastTime = 0;
+    setInterval(() => {
+        const t = p1.currentTime();
+        if (t === lastTime && !p1.paused()) {
+            reloadStream();
+        }
+        lastTime = t;
+    }, 4000);
+
+    // Reset automático a cada 3 minutos
+    setInterval(() => {
+        reloadStream();
+    }, 180000);
+
+    // Início da transmissão
+    reloadStream();
+
+    // --- LÓGICA DA GRADE ---
     let anuncios = [];
     let slideIdx = Array(17).fill(0);
     const grade = document.getElementById('gradePrincipal');
@@ -93,14 +132,16 @@
     setInterval(atualizar, 1000);
     setInterval(() => { for(let i=1; i<=16; i++) slideIdx[i]++; atualizar(); }, 15000);
 
-    // Sincronia Admin
+    // --- SINCRONIA ADMIN (LAYOUT) ---
     lay.ref('layout_totem').on('value', snap => {
         const s = snap.val(); if(!s) return;
         const mover = (id, d) => {
             const el = document.getElementById(id);
             if(!d || !el) return;
-            el.style.left = d.x + "%"; el.style.top = d.y + "%";
-            el.style.width = d.w + "%"; el.style.height = d.h + "%";
+            el.style.left = d.x + "%"; 
+            el.style.top = d.y + "%";
+            el.style.width = d.w + "%"; 
+            el.style.height = d.h + "%";
             el.style.transform = `rotate(${d.r || 0}deg)`;
         };
         mover('v-layer', s.video);
@@ -113,5 +154,4 @@
     });
 </script>
 </body>
-
 </html>
