@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <title>KBS TV - Ajuste Final</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KBS TV - Ultra Lite & Anti-Freeze</title>
 
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.min.css" rel="stylesheet" />
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Otimização de Performance: GPU Rendering */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-backface-visibility: hidden; }
         body { background: #000; overflow: hidden; width: 100vw; height: 100vh; }
         
         .admin-layer { position: absolute; overflow: hidden; display: block; }
@@ -19,6 +22,8 @@
         /* --- AJUSTE DO PLAYER --- */
         .video-js { width: 100% !important; height: 100% !important; }
         .vjs-tech { object-fit: fill !important; } 
+        /* Remove elementos de interface para poupar CPU */
+        .vjs-big-play-button, .vjs-loading-spinner, .vjs-control-bar { display: none !important; }
 
         /* --- AJUSTE DA GRADE --- */
         .grid { 
@@ -45,7 +50,7 @@
 <body onclick="p1.play(); p2.play(); p1.muted(false);">
 
     <div id="v-layer" class="admin-layer">
-        <video id="vid1" class="video-js vjs-default-skin" playsinline muted autoplay preload="auto"></video>
+        <video id="vid1" class="video-js vjs-default-skin" playsinline preload="auto"></video>
     </div>
     
     <div id="vb-layer" class="admin-layer">
@@ -57,7 +62,7 @@
     </div>
 
 <script>
-    // Inicialização Firebase
+    // Inicialização Firebase (Mantendo suas chaves originais)
     const mkt = firebase.initializeApp({
         apiKey: "AIzaSyBh-dhSMEgVO0dPyPdE-JAtPb2LeKaq9og",
         databaseURL: "https://marketing-19f3d-default-rtdb.firebaseio.com"
@@ -67,46 +72,52 @@
         databaseURL: "https://totem-full-tv-default-rtdb.firebaseio.com" 
     }, "layApp").database();
 
-    // Configuração do Player Principal (Lógica Anti-travamento solicitada)
     const ORIGINAL_URL = "https://srv3.zcast.com.br/kbstv/kbstv/playlist.m3u8";
-    const p1 = videojs('vid1', { controls: false, autoplay: true });
+
+    // --- CONFIGURAÇÃO PLAYER 1 (ESTABILIDADE TOTAL) ---
+    const p1 = videojs('vid1', {
+        controls: false,
+        autoplay: true,
+        html5: {
+            vhs: {
+                enableLowInitialPlaylist: true, // Começa leve para não travar
+                fastQualityChange: true,
+                overrideNative: true
+            }
+        }
+    });
+
     const p2 = videojs('vid2', { controls: false, autoplay: true, loop: true });
 
-    function tryEnableSound() {
-        p1.muted(false);
-        const p = p1.play();
-        if (p) p.catch(() => p1.muted(true));
-    }
-
     function reloadStream() {
-        console.warn("Recarregando stream principal...");
+        console.warn("Watchdog: Reiniciando stream para evitar travamento.");
         p1.src({ src: ORIGINAL_URL, type: "application/x-mpegURL" });
-        p1.load();
-        p1.play().then(tryEnableSound);
+        p1.play().then(() => {
+            p1.muted(false);
+        }).catch(() => {
+            p1.muted(true);
+        });
     }
 
-    p1.on("loadedmetadata", tryEnableSound);
-    p1.on("error", () => { reloadStream(); });
-
-    // Anti-travamento (4 segundos)
-    let lastTime = 0;
+    // WATCHDOG: Se o tempo do vídeo não mudar em 4 segundos, reinicia
+    let lastTime = -1;
     setInterval(() => {
-        const t = p1.currentTime();
-        if (t === lastTime && !p1.paused()) {
-            reloadStream();
+        if (!p1.paused()) {
+            const currentTime = p1.currentTime();
+            if (currentTime === lastTime) {
+                reloadStream();
+            }
+            lastTime = currentTime;
         }
-        lastTime = t;
     }, 4000);
 
-    // Reset automático a cada 3 minutos
-    setInterval(() => {
-        reloadStream();
-    }, 180000);
+    // Reset preventivo a cada 5 minutos (limpeza de memória)
+    setInterval(reloadStream, 300000);
 
-    // Início da transmissão
+    p1.on("error", () => setTimeout(reloadStream, 2000));
     reloadStream();
 
-    // --- LÓGICA DA GRADE ---
+    // --- LÓGICA DA GRADE DE ANÚNCIOS ---
     let anuncios = [];
     let slideIdx = Array(17).fill(0);
     const grade = document.getElementById('gradePrincipal');
@@ -119,8 +130,9 @@
     });
 
     function atualizar() {
-        const h = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', hour12: false, timeZone: 'America/Sao_Paulo'});
-        const d = new Date().getDay();
+        const now = new Date();
+        const h = now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', hour12: false, timeZone: 'America/Sao_Paulo'});
+        const d = now.getDay();
         for(let i=1; i<=16; i++) {
             const box = document.getElementById(`q${i}`);
             const ativos = anuncios.filter(a => parseInt(a.pos) === i && a.days.includes(d) && (h >= a.start && h <= a.end));
