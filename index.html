@@ -7,7 +7,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-    <!-- Hls.js universal para rodar o m3u8 sem erro no Windows e no Manjaro -->
+    <!-- Hls.js para o Manjaro/Linux decodificar o m3u8 corretamente -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <style>
@@ -41,11 +41,11 @@
         img { width: 100%; height: 100%; object-fit: fill; display: block; }
     </style>
 </head>
-<body onclick="liberarAudio()">
+<body onclick="document.getElementById('vid1').muted=false;">
 
-    <!-- Players Nativos com Hls.js integrado -->
+    <!-- Players Nativos (Com Hls.js integrado para Windows e Manjaro) -->
     <div id="v-layer" class="admin-layer">
-        <video id="vid1" playsinline autoplay></video>
+        <video id="vid1" playsinline muted autoplay></video>
     </div>
     <div id="vb-layer" class="admin-layer">
         <video id="vid2" playsinline muted autoplay></video>
@@ -56,7 +56,7 @@
     </div>
 
 <script>
-    // Inicialização do Player HLS Universal para vid1 (Windows e Manjaro)
+    // Inicialização do Player 1 com Hls.js universal
     const vid1 = document.getElementById('vid1');
     const streamUrl = "https://live.kbstvpro.com.br/live/canal1.m3u8";
 
@@ -69,26 +69,11 @@
         hls.loadSource(streamUrl);
         hls.attachMedia(vid1);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            vid1.muted = false;
-            vid1.play().catch(() => {
-                vid1.muted = true;
-                vid1.play();
-            });
+            vid1.play().catch(() => {});
         });
     } else if (vid1.canPlayType('application/vnd.apple.mpegurl')) {
         vid1.src = streamUrl;
-        vid1.muted = false;
-        vid1.play().catch(() => {
-            vid1.muted = true;
-            vid1.play();
-        });
-    }
-
-    function liberarAudio() {
-        if (vid1) {
-            vid1.muted = false;
-            vid1.play();
-        }
+        vid1.play().catch(() => {});
     }
 
     const mkt = firebase.initializeApp({
