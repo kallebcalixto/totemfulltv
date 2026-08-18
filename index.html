@@ -52,7 +52,6 @@
     </div>
 
 <script>
-    // Inicialização dos Firebases (Isolados)
     const mkt = firebase.initializeApp({
         apiKey: "AIzaSyBh-dhSMEgVO0dPyPdE-JAtPb2LeKaq9og",
         databaseURL: "https://marketing-19f3d-default-rtdb.firebaseio.com"
@@ -62,8 +61,12 @@
         databaseURL: "https://totem-full-tv-default-rtdb.firebaseio.com" 
     }, "layApp").database();
 
-    // Players
-    const p1 = videojs('vid1', { controls: false, autoplay: true });
+    // Players com configuração de HLS forçada para rodar em https
+    const p1 = videojs('vid1', { 
+        controls: false, 
+        autoplay: true,
+        html5: { hls: { overrideNative: true } }
+    });
     const p2 = videojs('vid2', { controls: false, autoplay: true });
     
     // Player 1 (M3U / Ao Vivo padrão)
@@ -81,14 +84,12 @@
                 playlistMp4.push(data[key].url);
             });
         }
-        // Se o player estiver ocioso e chegarem vídeos, começa a tocar do primeiro
         if (playlistMp4.length > 0 && p2.paused() && (!p2.currentSrc() || p2.currentSrc() === "")) {
             indiceMp4Atual = 0;
             tocarProximoMp4();
         }
     });
 
-    // Quando o vídeo MP4 atual terminar, pula automaticamente para o próximo da lista (loop alternado)
     p2.on('ended', () => {
         if (playlistMp4.length > 0) {
             indiceMp4Atual = (indiceMp4Atual + 1) % playlistMp4.length;
@@ -103,9 +104,8 @@
         p2.src({ src: playlistMp4[indiceMp4Atual], type: "video/mp4" });
         p2.play().catch(e => console.log("Aguardando interação para reproduzir auto:", e));
     }
-    // ----------------------------------------------
 
-    // Lógica da Grade (Garante 16 espaços)
+    // Lógica da Grade
     let anuncios = [];
     let slideIdx = Array(17).fill(0);
     const grade = document.getElementById('gradePrincipal');
@@ -131,7 +131,6 @@
     setInterval(atualizar, 1000);
     setInterval(() => { for(let i=1; i<=16; i++) slideIdx[i]++; atualizar(); }, 15000);
 
-    // Sincronia de Layout Admin (Posições e Tamanhos na Tela)
     lay.ref('layout_totem').on('value', snap => {
         const s = snap.val(); if(!s) return;
         const mover = (id, d) => {
