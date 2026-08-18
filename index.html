@@ -7,8 +7,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-    <!-- Hls.js essencial para rodar o m3u8 no Linux/Manjaro e navegadores de desktop -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,8 +14,8 @@
         
         .admin-layer { position: absolute; overflow: hidden; display: block; }
 
-        /* Ajuste do Player Nativo */
-        video { width: 100%; height: 100%; object-fit: fill; background: #000; }
+        /* Ajuste do Iframe do Player */
+        .video-iframe { width: 100%; height: 100%; border: none; background: #000; }
 
         /* Ajuste da Grade */
         .grid { 
@@ -41,11 +39,11 @@
         img { width: 100%; height: 100%; object-fit: fill; display: block; }
     </style>
 </head>
-<body onclick="liberarAudio()">
+<body>
 
-    <!-- Players Nativos com Hls.js para compatibilidade total -->
+    <!-- Player via Iframe do Servidor (Igual ao Assemco para rodar liso no Windows e Manjaro) -->
     <div id="v-layer" class="admin-layer">
-        <video id="vid1" playsinline autoplay></video>
+        <iframe class="video-iframe" src="https://live.kbstvpro.com.br/player.html" allow="autoplay; fullscreen; encrypted-media"></iframe>
     </div>
     <div id="vb-layer" class="admin-layer">
         <video id="vid2" playsinline muted autoplay></video>
@@ -56,38 +54,6 @@
     </div>
 
 <script>
-    // Configuração do Player HLS (vid1) para funcionar em Windows e Manjaro
-    const vid1 = document.getElementById('vid1');
-    const streamUrl = "https://live.kbstvpro.com.br/live/canal1.m3u8";
-
-    function iniciarStream() {
-        if (Hls.isSupported()) {
-            const hls = new Hls({
-                xhrSetup: function (xhr, url) {
-                    xhr.withCredentials = false;
-                }
-            });
-            hls.loadSource(streamUrl);
-            hls.attachMedia(vid1);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                vid1.muted = true;
-                vid1.play().catch(() => {});
-            });
-        } else if (vid1.canPlayType('application/vnd.apple.mpegurl')) {
-            vid1.src = streamUrl;
-            vid1.muted = true;
-            vid1.play().catch(() => {});
-        }
-    }
-    iniciarStream();
-
-    function liberarAudio() {
-        if (vid1) {
-            vid1.muted = false;
-            vid1.play();
-        }
-    }
-
     const mkt = firebase.initializeApp({
         apiKey: "AIzaSyBh-dhSMEgVO0dPyPdE-JAtPb2LeKaq9og",
         databaseURL: "https://marketing-19f3d-default-rtdb.firebaseio.com"
