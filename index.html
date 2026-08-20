@@ -42,10 +42,10 @@
         img { width: 100%; height: 100%; object-fit: fill; display: block; }
     </style>
 </head>
-<body onclick="p1.play(); p2.play(); p1.muted(false);">
+<body>
 
-    <div id="v-layer" class="admin-layer"><video id="vid1" class="video-js vjs-default-skin" playsinline muted autoplay></video></div>
-    <div id="vb-layer" class="admin-layer"><video id="vid2" class="video-js vjs-default-skin" playsinline muted autoplay></video></div>
+    <div id="v-layer" class="admin-layer"><video id="vid1" class="video-js vjs-default-skin" playsinline autoplay></video></div>
+    <div id="vb-layer" class="admin-layer"><video id="vid2" class="video-js vjs-default-skin" playsinline autoplay></video></div>
     
     <div id="g-layer" class="admin-layer">
         <div class="grid" id="gradePrincipal"></div>
@@ -62,12 +62,31 @@
         databaseURL: "https://totem-full-tv-default-rtdb.firebaseio.com" 
     }, "layApp").database();
 
-    // Players
-    const p1 = videojs('vid1', { controls: false, autoplay: true });
-    const p2 = videojs('vid2', { controls: false, autoplay: true });
+    // Players (iniciam sem mudo para tentar tocar com áudio)
+    const p1 = videojs('vid1', { controls: false, autoplay: true, muted: false });
+    const p2 = videojs('vid2', { controls: false, autoplay: true, muted: false });
     
     // Player 1 (M3U / Ao Vivo padrão)
     p1.src({ src: "https://live.kbstvpro.com.br/live/canal1.m3u8", type: "application/x-mpegURL" });
+
+    // Função para liberar o áudio globalmente caso o navegador bloqueie o autoplay com som
+    function liberarAudioGeral() {
+        p1.muted(false);
+        p1.play().catch(() => {});
+        
+        p2.muted(false);
+        p2.play().catch(() => {});
+    }
+
+    // Tenta liberar o som assim que a página carregar
+    liberarAudioGeral();
+
+    // Se o navegador bloquear, qualquer clique ou toque na tela libera o som imediatamente
+    ['click', 'touchstart', 'keydown'].forEach(evento => {
+        window.addEventListener(evento, () => {
+            liberarAudioGeral();
+        }, { once: true });
+    });
 
     // --- LOGICA DA PLAYLIST DE MP4 DO PLAYER 2 ---
     let playlistMp4 = [];
