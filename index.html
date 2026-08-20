@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <title>KBS TV - Master Control</title>
+    <title>KBS TV - Ajuste Final</title>
 
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -14,11 +16,11 @@
         
         .admin-layer { position: absolute; overflow: hidden; display: block; }
 
-        /* Player via Iframe idêntico ao do Assemco */
-        .video-iframe { width: 100%; height: 100%; border: none; background: #000; }
+        /* --- 1. AJUSTE DO PLAYER (PARA NÃO CORTAR) --- */
+        .video-js { width: 100% !important; height: 100% !important; }
+        .vjs-tech { object-fit: fill !important; } 
 
-        video { width: 100%; height: 100%; object-fit: fill; background: #000; }
-
+        /* --- 2. AJUSTE DA GRADE (PARA APARECER TODOS) --- */
         .grid { 
             display: grid; 
             grid-template-columns: repeat(4, 1fr); 
@@ -40,21 +42,17 @@
         img { width: 100%; height: 100%; object-fit: fill; display: block; }
     </style>
 </head>
-<body>
+<body onclick="p1.play(); p2.play(); p1.muted(false);">
 
-    <div id="v-layer" class="admin-layer">
-        <iframe class="video-iframe" src="https://live.kbstvpro.com.br/live/canal1.m3u8" allow="autoplay; fullscreen; encrypted-media"></iframe>
-    </div>
-    
-    <div id="vb-layer" class="admin-layer">
-        <video id="vid2" playsinline muted autoplay></video>
-    </div>
+    <div id="v-layer" class="admin-layer"><video id="vid1" class="video-js vjs-default-skin" playsinline muted autoplay></video></div>
+    <div id="vb-layer" class="admin-layer"><video id="vid2" class="video-js vjs-default-skin" playsinline muted autoplay></video></div>
     
     <div id="g-layer" class="admin-layer">
         <div class="grid" id="gradePrincipal"></div>
     </div>
 
 <script>
+    // Inicialização dos Firebases (Isolados)
     const mkt = firebase.initializeApp({
         apiKey: "AIzaSyBh-dhSMEgVO0dPyPdE-JAtPb2LeKaq9og",
         databaseURL: "https://marketing-19f3d-default-rtdb.firebaseio.com"
@@ -64,7 +62,14 @@
         databaseURL: "https://totem-full-tv-default-rtdb.firebaseio.com" 
     }, "layApp").database();
 
-    const p2 = document.getElementById('vid2');
+    // Players
+    const p1 = videojs('vid1', { controls: false, autoplay: true });
+    const p2 = videojs('vid2', { controls: false, autoplay: true });
+    
+    // Player 1 (M3U / Ao Vivo padrão)
+    p1.src({ src: "https://srv3.zcast.com.br/kbstv/kbstv/playlist.m3u8", type: "application/x-mpegURL" });
+
+    // --- LOGICA DA PLAYLIST DE MP4 DO PLAYER 2 ---
     let playlistMp4 = [];
     let indiceMp4Atual = 0;
 
@@ -72,23 +77,35 @@
         playlistMp4 = [];
         const data = snap.val();
         if (data) {
-            Object.keys(data).forEach(key => { playlistMp4.push(data[key].url); });
+            Object.keys(data).forEach(key => {
+                playlistMp4.push(data[key].url);
+            });
         }
-        if (playlistMp4.length > 0 && p2.paused) {
+        // Se o player estiver ocioso e chegarem vídeos, começa a tocar do primeiro
+        if (playlistMp4.length > 0 && p2.paused() && (!p2.currentSrc() || p2.currentSrc() === "")) {
             indiceMp4Atual = 0;
-            p2.src = playlistMp4[indiceMp4Atual];
-            p2.play();
+            tocarProximoMp4();
         }
     });
 
-    p2.onended = () => {
+    // Quando o vídeo MP4 atual terminar, pula automaticamente para o próximo da lista (loop alternado)
+    p2.on('ended', () => {
         if (playlistMp4.length > 0) {
             indiceMp4Atual = (indiceMp4Atual + 1) % playlistMp4.length;
-            p2.src = playlistMp4[indiceMp4Atual];
-            p2.play();
+            tocarProximoMp4();
         }
-    };
+    });
 
+    function tocarProximoMp4() {
+        if (playlistMp4.length === 0) return;
+        if (indiceMp4Atual >= playlistMp4.length) indiceMp4Atual = 0;
+        
+        p2.src({ src: playlistMp4[indiceMp4Atual], type: "video/mp4" });
+        p2.play().catch(e => console.log("Aguardando interação para reproduzir auto:", e));
+    }
+    // ----------------------------------------------
+
+    // Lógica da Grade (Garante 16 espaços)
     let anuncios = [];
     let slideIdx = Array(17).fill(0);
     const grade = document.getElementById('gradePrincipal');
@@ -114,6 +131,7 @@
     setInterval(atualizar, 1000);
     setInterval(() => { for(let i=1; i<=16; i++) slideIdx[i]++; atualizar(); }, 15000);
 
+    // Sincronia de Layout Admin (Posições e Tamanhos na Tela)
     lay.ref('layout_totem').on('value', snap => {
         const s = snap.val(); if(!s) return;
         const mover = (id, d) => {
